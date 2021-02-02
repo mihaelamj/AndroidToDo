@@ -1,5 +1,6 @@
 package com.aleahim.listee
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.view.Menu
@@ -11,10 +12,15 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), TodoListAdapter.TodoListClickListener {
 
     private lateinit var todoRecyclerView: RecyclerView
-    val listDataManager: ListDataManager = ListDataManager(this)
+    private val listDataManager: ListDataManager = ListDataManager(this)
+
+    companion object {
+        const val INTENT_LIST_KEY = "list"
+        const val LIST_DETAIL_REQUEST_CODE = 666
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,7 +32,7 @@ class MainActivity : AppCompatActivity() {
 
         todoRecyclerView = findViewById(R.id.listsRecyclerView)
         todoRecyclerView.layoutManager = LinearLayoutManager(this)
-        todoRecyclerView.adapter = TodoListAdapter(lists)
+        todoRecyclerView.adapter = TodoListAdapter(lists, this)
 
 
         findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { _ ->
@@ -38,6 +44,24 @@ class MainActivity : AppCompatActivity() {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == LIST_DETAIL_REQUEST_CODE) {
+            // check if there is data, and unpack it
+            data?.let {
+                val list = data.getParcelableExtra<TaskList>(INTENT_LIST_KEY)!!
+                listDataManager.saveList(list)
+                updateLists()
+            }
+        }
+    }
+
+    private fun updateLists() {
+        val lists = listDataManager.readLists()
+        todoRecyclerView.adapter = TodoListAdapter(lists, this)
+
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -68,17 +92,25 @@ class MainActivity : AppCompatActivity() {
 
             // save the new list
             listDataManager.saveList(list)
-
             // update recycler view
             adapter.addList(list)
 
-
-//            adapter.addNewItem(newTitle)
-
             dialog.dismiss()
+
+            // go to the new activity with a newly created list
+            showTaskListItems(list)
         }
         myDialog.create().show()
+    }
 
+    private fun showTaskListItems(list: TaskList) {
+        val taskListItem = Intent(this, DetailActivity::class.java)
+        taskListItem.putExtra(INTENT_LIST_KEY, list) // of Parcelable
+        startActivityForResult(taskListItem, LIST_DETAIL_REQUEST_CODE)
+    }
 
+    // implementing `TodoListAdapter.TodoListClickListener`
+    override fun listItemClicked(list: TaskList) {
+        showTaskListItems(list)
     }
 }
